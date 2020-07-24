@@ -134,6 +134,16 @@ createTestSuiteWithDifferentReportFormats \
     "--config ../config-for-outdated-elm-review" \
     "outdated-version"
 
+createTestSuiteWithDifferentReportFormats \
+    "Filter rules" \
+    "--rules NoUnused.Variables" \
+    "filter-rules"
+
+createTestSuiteWithDifferentReportFormats \
+    "Filter unknown rule" \
+    "--rules NoUnused.Unknown" \
+    "filter-unknown-rule"
+
 # Review with remote configuration
 
 $createTest \
