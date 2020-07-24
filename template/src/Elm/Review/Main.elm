@@ -15,6 +15,7 @@ import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Rule)
 import ReviewConfig exposing (config)
+import Set exposing (Set)
 
 
 
@@ -131,7 +132,7 @@ type ReportMode
 init : Flags -> ( Model, Cmd msg )
 init flags =
     let
-        ( { fixMode, reportMode, detailsMode, ignoreProblematicDependencies }, cmd ) =
+        ( { fixMode, reportMode, detailsMode, ignoreProblematicDependencies, rulesFilter }, cmd ) =
             case Decode.decodeValue decodeFlags flags of
                 Ok decodedFlags ->
                     ( decodedFlags, Cmd.none )
@@ -141,11 +142,21 @@ init flags =
                       , reportMode = HumanReadable
                       , detailsMode = Reporter.WithoutDetails
                       , ignoreProblematicDependencies = False
+                      , rulesFilter = Nothing
                       }
                     , abort <| "Problem decoding the flags when running the elm-review runner:\n  " ++ Decode.errorToString error
                     )
+
+        rules : List Rule
+        rules =
+            case rulesFilter of
+                Just rulesToEnable ->
+                    List.filter (\rule -> Set.member (Rule.ruleName rule) rulesToEnable) config
+
+                Nothing ->
+                    config
     in
-    ( { rules = config
+    ( { rules = rules
       , project = Project.new
       , links = Dict.empty
       , fixAllResultProject = Project.new
@@ -181,16 +192,18 @@ type alias DecodedFlags =
     , detailsMode : Reporter.DetailsMode
     , reportMode : ReportMode
     , ignoreProblematicDependencies : Bool
+    , rulesFilter : Maybe (Set String)
     }
 
 
 decodeFlags : Decode.Decoder DecodedFlags
 decodeFlags =
-    Decode.map4 DecodedFlags
+    Decode.map5 DecodedFlags
         (Decode.field "fixMode" decodeFix)
         (Decode.field "detailsMode" decodeDetailsMode)
         (Decode.field "report" decodeReportMode)
         (Decode.field "ignoreProblematicDependencies" Decode.bool)
+        (Decode.field "rulesFilter" decodeRulesFilter)
 
 
 decodeFix : Decode.Decoder FixMode
@@ -245,6 +258,15 @@ decodeReportMode =
                     _ ->
                         Decode.fail <| "I could not understand the following report mode: " ++ reportMode
             )
+
+
+decodeRulesFilter : Decode.Decoder (Maybe (Set String))
+decodeRulesFilter =
+    Decode.oneOf
+        [ Decode.list Decode.string
+            |> Decode.map (Set.fromList >> Just)
+        , Decode.null Nothing
+        ]
 
 
 
